@@ -1,3 +1,0 @@
-#desision tree
-> model_tree <- rpart(Churn ~ ., data = trainData, method = "class")
-> rpart.plot(model_tree, extra = 106, main = "Decision Tree Rules for Churn")
