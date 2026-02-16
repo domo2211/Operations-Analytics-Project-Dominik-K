@@ -1,3 +1,0 @@
-> #random forest
-> model_rf <- randomForest(Churn ~ ., data = trainData, ntree = 100, importance = TRUE)
-> varImpPlot(model_rf, main = "Top Factors Driving Churn")
