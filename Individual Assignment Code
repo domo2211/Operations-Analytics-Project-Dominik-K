@@ -1,0 +1,182 @@
+Libraries used:
+library(tidyverse)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(randomForest)
+library(pROC)
+
+#Data cleaning
+>raw_data <- read.csv("Telecom churn raw.csv",stringsAsFactors = TRUE)
+> # fixing punctuation
+> clean_data <- raw_data %>%
++    mutate(Total.Charges = as.numeric(gsub(",", ".", Total.Charges))) %>%
++    mutate(Monthly.Charges = as.numeric(gsub(",", ".", Monthly.Charges))) %>%
++    # basic data cleaning
++    drop_na(Total.Charges) %>%
++    mutate(Senior.Citizen = as.factor(ifelse(Senior.Citizen == 1, "Yes", "No"))) %>%
++    select(-Customer.ID)
+> # checking output
+> print(dim(clean_data))
+> # data split
+set.seed(123) 
+> trainIndex <- createDataPartition(clean_data$Churn, p = .7, list = FALSE, times = 1)
+> trainData <- clean_data[ trainIndex,]
+> testData  <- clean_data[-trainIndex,]
+> # checking values
+> print(paste("Training Rows:", nrow(trainData)))
+> print(paste("Testing Rows:", nrow(testData)))
+> # Logistic Regression
+> model_logit <- glm(Churn ~ ., data = trainData, family = "binomial")
+> summary(model_logit)
+Call:
+glm(formula = Churn ~ ., family = "binomial", data = trainData)
+
+
+Coefficients:
+                                          Estimate Std. Error z value Pr(>|z|)    
+(Intercept)                              6.842e-02  1.575e+00   0.043  0.96535    
+GenderFemale                             2.241e-02  1.542e+00   0.015  0.98840    
+Gendermale                              -1.063e+00  1.773e+00  -0.600  0.54853    
+GenderMale                              -3.501e-02  1.542e+00  -0.023  0.98188    
+Senior.CitizenYes                        1.768e-01  1.604e-01   1.102  0.27043    
+Age                                     -1.936e-04  3.648e-03  -0.053  0.95768    
+Tenure                                  -2.338e-02  5.557e-03  -4.208 2.58e-05 ***
+Phone.ServiceYes                         1.479e-01  1.832e-01   0.807  0.41965    
+Multiple.LinesNo phone service          -7.668e-02  1.860e-01  -0.412  0.68020    
+Multiple.LinesYes                        2.194e-02  1.177e-01   0.186  0.85218    
+Internet.ServiceFiber optic              7.585e-01  1.267e-01   5.985 2.16e-09 ***
+Internet.ServiceNo                      -2.020e-01  1.573e-01  -1.284  0.19915    
+TV...Movie.StreamingNo internet service -3.389e-01  1.451e-01  -2.336  0.01948 *  
+TV...Movie.StreamingYes                 -2.193e-01  1.264e-01  -1.736  0.08263 .  
+ContractOne year                        -1.036e+00  1.320e-01  -7.848 4.21e-15 ***
+ContractTwo year                        -2.331e+00  1.739e-01 -13.406  < 2e-16 ***
+Payment.MethodCredit card               -5.059e-01  1.666e-01  -3.036  0.00239 ** 
+Payment.MethodElectronic check           2.893e-01  1.527e-01   1.894  0.05819 .  
+Payment.MethodMailed check              -1.563e-01  1.608e-01  -0.972  0.33090    
+Monthly.Charges                          8.402e-03  2.774e-03   3.028  0.00246 ** 
+Total.Charges                            8.277e-05  6.955e-05   1.190  0.23400    
+---
+Signif. codes:  0 ‘***’ 0.001 ‘**’ 0.01 ‘*’ 0.05 ‘.’ 0.1 ‘ ’ 1
+
+(Dispersion parameter for binomial family taken to be 1)
+
+    Null deviance: 2378.2  on 1743  degrees of freedom
+Residual deviance: 1942.4  on 1723  degrees of freedom
+AIC: 1984.4
+
+Number of Fisher Scoring iterations: 4
+
+
+
+
+#desision tree
+> model_tree <- rpart(Churn ~ ., data = trainData, method = "class")
+> rpart.plot(model_tree, extra = 106, main = "Decision Tree Rules for Churn")
+
+
+
+
+> #random forest
+> model_rf <- randomForest(Churn ~ ., data = trainData, ntree = 100, importance = TRUE)
+> varImpPlot(model_rf, main = "Top Factors Driving Churn")
+
+
+
+
+# Evaluation
+> pred_prob_logit <- predict(model_logit, testData, type = "response")
+> pred_class_logit <- as.factor(ifelse(pred_prob_logit > 0.5, "Yes", "No"))
+> 
+> pred_class_tree <- predict(model_tree, testData, type = "class")
+> pred_class_rf   <- predict(model_rf, testData, type = "class")
+> 
+> # confusion matrix
+> confusionMatrix(pred_class_logit, testData$Churn, positive="Yes")
+Confusion Matrix and Statistics
+
+          Reference
+Prediction  No Yes
+       No  308 125
+       Yes 121 192
+                                          
+               Accuracy : 0.6702          
+                 95% CI : (0.6352, 0.7039)
+    No Information Rate : 0.5751          
+    P-Value [Acc > NIR] : 6.182e-08       
+                                          
+                  Kappa : 0.3242          
+                                          
+ Mcnemar's Test P-Value : 0.8483          
+                                          
+            Sensitivity : 0.6057          
+            Specificity : 0.7179          
+         Pos Pred Value : 0.6134          
+         Neg Pred Value : 0.7113          
+             Prevalence : 0.4249          
+         Detection Rate : 0.2574          
+   Detection Prevalence : 0.4196          
+      Balanced Accuracy : 0.6618          
+                                          
+       'Positive' Class : Yes       
+
+
+
+
+> confusionMatrix(pred_class_rf, testData$Churn, positive="Yes")
+Confusion Matrix and Statistics
+
+          Reference
+Prediction  No Yes
+       No  331 127
+       Yes  98 190
+                                         
+               Accuracy : 0.6984         
+                 95% CI : (0.664, 0.7312)
+    No Information Rate : 0.5751         
+    P-Value [Acc > NIR] : 2.587e-12      
+                                         
+                  Kappa : 0.3754         
+                                         
+ Mcnemar's Test P-Value : 0.06195        
+                                         
+            Sensitivity : 0.5994         
+            Specificity : 0.7716         
+         Pos Pred Value : 0.6597         
+         Neg Pred Value : 0.7227         
+             Prevalence : 0.4249         
+         Detection Rate : 0.2547         
+   Detection Prevalence : 0.3861         
+      Balanced Accuracy : 0.6855         
+                                         
+       'Positive' Class : Yes    
+
+
+
+
+> # ROC
+> roc_logit <- roc(testData$Churn, pred_prob_logit)
+
+Setting levels: control = No, case = Yes
+Setting direction: controls < cases
+> pred_prob_rf <- predict(model_rf, testData, type = "prob")[,2]
+> roc_rf <- roc(testData$Churn, pred_prob_rf)
+
+Setting levels: control = No, case = Yes
+Setting direction: controls < cases
+> 
+> print(paste("AUC (Logistic):", round(auc(roc_logit), 3)))
+[1] "AUC (Logistic): 0.737"
+> print(paste("AUC (Random Forest):", round(auc(roc_rf), 3)))
+[1] "AUC (Random Forest): 0.74"
+
+
+
+
+> # roc curve print
+> plot(roc_logit, col="blue", main="ROC Curve Comparison")
+> plot(roc_rf, col="red", add=TRUE)
+> legend("bottomright", legend=c("Logistic", "Random Forest"), col=c("blue", "red"), lwd=2)
+
+
+
